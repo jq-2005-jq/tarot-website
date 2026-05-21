@@ -1,6 +1,8 @@
 // ==================== 塔罗占卜 — 多牌阵自选 + 智能解读 ====================
 document.addEventListener("DOMContentLoaded", () => {
   initParticles();
+  initTarotSymbols();
+  initConstellation();
   preloadImages();
 
   // DOM refs
@@ -43,6 +45,78 @@ document.addEventListener("DOMContentLoaded", () => {
       if (Math.random() > 0.5) p.style.background = "var(--gold-light)";
       container.appendChild(p);
     }
+  }
+
+  // ==================== 塔罗元素浮动符号 ====================
+  function initTarotSymbols() {
+    const container = document.getElementById("tarot-symbols");
+    if (!container) return;
+    const symbols = [
+      { char: "✧", color: "#c9a84c" },  // 神秘之星
+      { char: "☽", color: "#e4c76b" },  // 新月
+      { char: "☉", color: "#f5deb3" },  // 太阳
+      { char: "⚔", color: "#9b6fd4" },  // 宝剑
+      { char: "🜁", color: "#e0d8f0" },  // 权杖/风
+      { char: "🜄", color: "#7eb8da" },  // 圣杯/水
+      { char: "⛧", color: "#c9a84c" },  // 五角星
+      { char: "◈", color: "#b8a0e0" },  // 钻石/星币
+      { char: "☿", color: "#9088a0" },  // 水星/魔术师
+      { char: "♃", color: "#e4c76b" },  // 木星/命运之轮
+      { char: "□", color: "#9088a0" },  // 星币轮廓
+      { char: "△", color: "#9b6fd4" },  // 宝剑三角
+    ];
+    symbols.forEach((sym, i) => {
+      const el = document.createElement("span");
+      el.className = "tarot-sym";
+      el.textContent = sym.char;
+      el.style.color = sym.color;
+      el.style.left = (5 + Math.random() * 90) + "%";
+      el.style.top = (5 + Math.random() * 90) + "%";
+      el.style.animationDuration = (10 + Math.random() * 14) + "s";
+      el.style.animationDelay = (Math.random() * 10) + "s";
+      el.style.fontSize = (1 + Math.random() * 2.2) + "rem";
+      container.appendChild(el);
+    });
+  }
+
+  // ==================== 星座连线 ====================
+  function initConstellation() {
+    const container = document.getElementById("constellation");
+    if (!container) return;
+    // 在几个"锚点星"之间画淡色连线
+    const anchors = [
+      { x: 8, y: 12 }, { x: 25, y: 22 }, { x: 48, y: 10 },
+      { x: 60, y: 18 }, { x: 82, y: 25 }, { x: 92, y: 32 },
+      { x: 15, y: 40 }, { x: 28, y: 50 }, { x: 45, y: 55 },
+      { x: 62, y: 48 }, { x: 78, y: 42 }, { x: 85, y: 42 },
+      { x: 5, y: 65 }, { x: 22, y: 72 }, { x: 52, y: 75 },
+      { x: 68, y: 70 }, { x: 80, y: 78 }
+    ];
+    // Draw lines between nearby anchors
+    const lines = [
+      [0,1],[1,2],[2,3],[3,4],[4,5],
+      [6,7],[7,8],[8,9],[9,10],[10,11],
+      [12,13],[13,14],[14,15],[15,16],
+      [0,6],[1,7],[2,8],[3,9],[4,10],
+      [6,12],[7,13],[8,14],[9,15],[10,16]
+    ];
+    lines.forEach(([a, b]) => {
+      if (a >= anchors.length || b >= anchors.length) return;
+      const ax = anchors[a].x, ay = anchors[a].y;
+      const bx = anchors[b].x, by = anchors[b].y;
+      const dx = bx - ax, dy = by - ay;
+      const length = Math.sqrt(dx * dx + dy * dy);
+      const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+
+      const line = document.createElement("div");
+      line.className = "constellation-line";
+      line.style.left = ax + "%";
+      line.style.top = ay + "%";
+      line.style.width = length + "vh";
+      line.style.transform = `rotate(${angle}deg)`;
+      line.style.animationDelay = (Math.random() * 5) + "s";
+      container.appendChild(line);
+    });
   }
 
   // ==================== 图片预加载 ====================

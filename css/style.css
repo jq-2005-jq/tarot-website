@@ -84,21 +84,69 @@ body {
   50% { opacity: 1; }
 }
 
-/* Layer 4: Moon / glowing orb */
+/* Layer 4: Moon — 满月光晕 */
 .moon {
-  position: fixed; top: 6%; left: 50%; transform: translateX(-50%);
-  width: 200px; height: 200px; z-index: 0; pointer-events: none;
-  background: radial-gradient(circle, rgba(255,240,210,0.25) 0%, rgba(240,210,150,0.10) 30%, rgba(180,140,100,0.04) 55%, transparent 100%);
+  position: fixed; top: 5%; left: 50%; transform: translateX(-50%);
+  width: 220px; height: 220px; z-index: 0; pointer-events: none;
+  background: radial-gradient(circle, rgba(255,245,220,0.28) 0%, rgba(240,210,150,0.12) 35%, rgba(200,160,120,0.05) 60%, transparent 100%);
   border-radius: 50%;
-  filter: blur(8px);
+  filter: blur(6px);
   animation: moonPulse 6s ease-in-out infinite;
 }
 @keyframes moonPulse {
-  0%, 100% { transform: translateX(-50%) scale(1); opacity: 0.8; }
-  50% { transform: translateX(-50%) scale(1.15); opacity: 1; }
+  0%, 100% { transform: translateX(-50%) scale(1); opacity: 0.7; }
+  50% { transform: translateX(-50%) scale(1.18); opacity: 1; }
 }
 
-/* Layer 5: Floating particles with JS */
+/* Layer 5: Crescent Moon — 新月剪影 */
+.moon-crescent {
+  position: fixed; top: 12%; right: 8%; z-index: 0; pointer-events: none;
+  width: 70px; height: 70px;
+  background: radial-gradient(circle at 35% 35%, transparent 55%, rgba(240,210,150,0.15) 55%);
+  border-radius: 50%;
+  animation: crescentFloat 8s ease-in-out infinite;
+}
+@keyframes crescentFloat {
+  0%, 100% { transform: translateY(0) rotate(0deg); opacity: 0.4; }
+  50% { transform: translateY(-15px) rotate(5deg); opacity: 0.7; }
+}
+
+/* Layer 6: Pentagram — 五角星图腾 */
+.pentagram {
+  position: fixed; bottom: 8%; right: 5%; z-index: 0; pointer-events: none;
+  width: 180px; height: 180px;
+  opacity: 0.06;
+  background:
+    /* 五角星 using clip-path polygon */
+    linear-gradient(135deg, var(--gold), var(--gold-light));
+  clip-path: polygon(
+    50% 0%, 61% 35%, 98% 35%, 68% 57%,
+    79% 91%, 50% 70%, 21% 91%, 32% 57%,
+    2% 35%, 39% 35%
+  );
+  animation: pentagramRotate 40s linear infinite;
+}
+@keyframes pentagramRotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Layer 7: Constellation lines — 星座连线 */
+.constellation {
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+}
+.constellation-line {
+  position: absolute; height: 1px;
+  background: linear-gradient(90deg, rgba(201,168,76,0.15), rgba(201,168,76,0.05), transparent);
+  transform-origin: left center;
+  animation: constellationShimmer 5s ease-in-out infinite;
+}
+@keyframes constellationShimmer {
+  0%, 100% { opacity: 0.2; }
+  50% { opacity: 0.5; }
+}
+
+/* Layer 8: Floating gold particles */
 .particles { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
 .particle {
   position: absolute; border-radius: 50%;
@@ -112,6 +160,25 @@ body {
   10% { opacity: 0.8; }
   50% { opacity: 0.5; transform: translateY(-30vh) scale(1); }
   100% { opacity: 0; transform: translateY(-60vh) scale(0); }
+}
+
+/* Layer 9: Floating Tarot suit symbols */
+.tarot-symbols {
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+}
+.tarot-sym {
+  position: absolute; font-size: 1.4rem;
+  animation: symbolFloat 12s ease-in-out infinite;
+  opacity: 0.12; pointer-events: none;
+  filter: blur(0.5px);
+  text-shadow: 0 0 8px currentColor;
+}
+@keyframes symbolFloat {
+  0% { transform: translateY(0) rotate(0deg) scale(0.8); opacity: 0.05; }
+  25% { opacity: 0.13; }
+  50% { transform: translateY(-40px) rotate(10deg) scale(1.1); opacity: 0.10; }
+  75% { opacity: 0.07; }
+  100% { transform: translateY(0) rotate(0deg) scale(0.8); opacity: 0.05; }
 }
 
 /* ========== Container ========== */
@@ -492,6 +559,9 @@ body {
   .card-face .card-orientation { font-size: 0.6rem; top: 4px; right: 6px; }
   .card-back-pattern { font-size: 2rem; }
   .moon { width: 140px; height: 140px; top: 4%; }
+  .moon-crescent { width: 40px; height: 40px; top: 10%; right: 5%; }
+  .pentagram { width: 100px; height: 100px; bottom: 5%; right: 2%; }
+  .tarot-sym { font-size: 1rem; }
   .ai-progress { padding: 16px 18px; }
   #reading-content { padding: 0 8px; }
 }
