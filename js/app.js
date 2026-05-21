@@ -1,7 +1,7 @@
-// ==================== 塔罗占卜 — 多牌阵自选 + 浏览器AI解读 ====================
+// ==================== 塔罗占卜 — 多牌阵自选 + 智能解读 ====================
 document.addEventListener("DOMContentLoaded", () => {
-  // 浮动粒子背景
   initParticles();
+  preloadImages();
 
   // DOM refs
   const spreadCards = document.getElementById("spread-cards");
@@ -21,7 +21,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let flippedCount = 0;
   let totalCards = 3;
 
-  // WebLLM engine (lazy init)
+  // WebLLM
   let mlcEngine = null;
   let aiInitPromise = null;
   let aiReady = false;
@@ -45,6 +45,30 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  // ==================== 图片预加载 ====================
+  function preloadImages() {
+    // 后台预加载所有卡牌图片到浏览器缓存，后续抽牌秒开
+    const preloadLink = document.createElement("link");
+    preloadLink.rel = "dns-prefetch";
+    preloadLink.href = "https://cdn.jsdelivr.net";
+    document.head.appendChild(preloadLink);
+
+    // 分批预加载，每批 10 张，间隔 200ms，避免阻塞
+    const keys = TAROT_CARDS.map(c => c.key);
+    let idx = 0;
+    function loadBatch() {
+      const batch = keys.slice(idx, idx + 10);
+      batch.forEach(key => {
+        const img = new Image();
+        img.src = getCardImage(key);
+      });
+      idx += 10;
+      if (idx < keys.length) setTimeout(loadBatch, 200);
+    }
+    // 延迟启动，优先渲染页面
+    setTimeout(loadBatch, 1500);
+  }
+
   // ==================== 牌阵选择 ====================
   spreadCards.addEventListener("click", (e) => {
     const btn = e.target.closest(".spread-option");
@@ -59,7 +83,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const spread = SPREADS[currentSpread];
     totalCards = spread.count;
 
-    // Fisher-Yates shuffle, pick required count
     const pool = [...TAROT_CARDS];
     for (let i = pool.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
@@ -70,7 +93,6 @@ document.addEventListener("DOMContentLoaded", () => {
       isReversed: Math.random() < 0.5
     }));
 
-    // Build card slots dynamically
     cardsRow.innerHTML = "";
     spread.positions.forEach((pos, i) => {
       const data = drawnCards[i];
@@ -84,7 +106,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <div class="card-back-pattern">✦</div>
           </div>
           <div class="card-face">
-            <img class="card-img" src="${getCardImage(data.card.key)}" alt="${data.card.name}" />
+            <img class="card-img" src="${getCardImage(data.card.key)}" alt="${data.card.name}" loading="eager" />
             <div class="card-name">${data.card.name}</div>
             <div class="card-keywords">${data.isReversed ? data.card.rev_keywords : data.card.up_keywords}</div>
             <span class="card-orientation ${data.isReversed ? 'reversed' : 'upright'}">${data.isReversed ? '逆位' : '正位'}</span>
@@ -146,53 +168,105 @@ document.addEventListener("DOMContentLoaded", () => {
     readingSection.classList.remove("hidden");
     readingSection.scrollIntoView({ behavior: "smooth", block: "start" });
 
-    // 启动 AI 解读
-    requestAIReading(spread);
+    // 立即展示规则引擎综合解读
+    showInstantReading(spread);
+
+    // 后台尝试 WebLLM AI，成功则替换
+    tryWebLLM(spread);
   }
 
-  // ==================== AI 解读 (WebLLM) ====================
-  async function requestAIReading(spread) {
+  // ==================== 即时综合解读（规则引擎） ====================
+  function showInstantReading(spread) {
+    const synthesis = buildSynthesis(spread);
     aiReading.classList.remove("hidden");
-
-    // 检查 WebGPU 支持
-    if (!navigator.gpu) {
-      aiReading.innerHTML = `
-        <div class="ai-reading-header">
-          <span class="ai-icon">✨</span>
-          <span class="ai-title">AI 综合分析</span>
-        </div>
-        <div class="ai-unsupported">
-          你的浏览器暂不支持本地AI。<br>
-          请使用 <strong>Chrome 113+</strong> 或 <strong>Edge 113+</strong> 访问即可启用此功能。
-        </div>`;
-      return;
-    }
-
-    // 显示初始状态
     aiReading.innerHTML = `
       <div class="ai-reading-header">
         <span class="ai-icon">✨</span>
-        <span class="ai-title">AI 综合分析</span>
+        <span class="ai-title">综合分析</span>
       </div>
-      <div id="ai-progress-area" class="ai-progress">
-        <div class="ai-progress-text">正在准备AI模型...</div>
-        <div class="ai-progress-bar"><div class="ai-progress-fill" style="width:0%"></div></div>
-      </div>
+      <div class="ai-reading-body">${synthesis}</div>
     `;
+  }
+
+  function buildSynthesis(spread) {
+    const question = questionInput.value.trim();
+    const cards = drawnCards.map((d, i) => ({
+      ...d,
+      position: spread.positions[i]
+    }));
+
+    const majorCount = cards.filter(c => c.card.type === "major").length;
+    const reversedCount = cards.filter(c => c.isReversed).length;
+    const suits = {};
+    cards.forEach(c => {
+      if (c.card.suit) suits[c.card.suit] = (suits[c.card.suit] || 0) + 1;
+    });
+
+    const paragraphs = [];
+
+    // 开场
+    if (question) {
+      paragraphs.push(`<p>关于你提出的「<strong>${question}</strong>」，牌面给出了以下启示。</p>`);
+    } else if (totalCards === 1) {
+      paragraphs.push(`<p>你抽到的这张牌，是宇宙此刻给你的核心讯息。</p>`);
+    } else {
+      paragraphs.push(`<p>${spread.name}已然展开。${totalCards}张牌的排列，构成了一幅完整的能量画卷。</p>`);
+    }
+
+    // 大牌占比分析
+    if (majorCount === totalCards && totalCards > 1) {
+      paragraphs.push(`<p>所有牌面均为<strong>大阿尔卡纳</strong>，这是一个极为强烈的信号——你正站在人生的重要十字路口。宇宙不是在轻声低语，而是在对你呐喊。这些原型力量汇聚在一起，预示着一场深层次的灵魂蜕变正在发生。</p>`);
+    } else if (majorCount >= totalCards * 0.6 && totalCards > 1) {
+      paragraphs.push(`<p>大阿尔卡纳在牌阵中占据了主导地位，这意味当前的议题<strong>超越了日常琐事</strong>，触及到你生命更深层的脉络。这是一个需要你拿出勇气与智慧的时刻。</p>`);
+    }
+
+    // 逆位分析
+    if (reversedCount === totalCards && totalCards > 1) {
+      paragraphs.push(`<p>所有牌面以逆位呈现，这并非凶兆，而是在强烈提醒：<strong>某些内在的课题已经到了必须面对的时刻</strong>。逆位的能量像是被按下的弹簧——一旦你正视它的源头，释放出来的力量将超乎想象。</p>`);
+    } else if (reversedCount > 0) {
+      const revNames = cards.filter(c => c.isReversed).map(c => c.card.name).join("、");
+      paragraphs.push(`<p>${revNames} 以<strong>逆位</strong>出现，提示这些领域的能量尚在酝酿或受阻。逆位是一面诚实的镜子，邀请你看见那些被忽略的内在真相。</p>`);
+    } else if (totalCards > 1) {
+      paragraphs.push(`<p>所有牌面以<strong>正位</strong>展现，能量流通顺畅。当下的你处于一个意识清明、行动有力的阶段，宇宙的力量在支撑着你的每一步。</p>`);
+    }
+
+    // 牌面串联解读
+    const cardPhrases = cards.map((c, i) => {
+      const prefix = c.isReversed ? "逆位提醒" : "正位预示";
+      return `<strong>${c.position.label}</strong>的<em>${c.card.name}</em>${prefix}着：${c.isReversed ? c.card.rev_meaning : c.card.up_meaning}`;
+    });
+    paragraphs.push(`<p>将这${totalCards}张牌串联起来，一条清晰的线索浮现了出来：${cardPhrases.join("；")}。这些牌面彼此呼应，共同编织出一个完整的故事。</p>`);
+
+    // 同花色强化解读
+    const dominantSuit = Object.entries(suits).find(([, count]) => count >= 2);
+    if (dominantSuit) {
+      const suitInsights = {
+        "权杖": "值得一提的是，<strong>权杖</strong>的能量在牌阵中反复出现，🔥 行动、激情与创造力是贯穿全局的主旋律。你需要信任自己的内在火焰，大胆迈出第一步——世界会为勇敢者让路。",
+        "圣杯": "值得关注的是，<strong>圣杯</strong>的反复到场将焦点坚定地指向了情感与人际的世界。💧 此刻你最需要的不是理性的分析，而是倾听内心真实的声音，允许情绪的潮汐自然流动。",
+        "宝剑": "引人注目的是，<strong>宝剑</strong>的能量贯穿了整个牌阵。⚔️ 思维、沟通与真相是你当下无法绕开的课题。理性是你的利刃，但也请当心——这把剑既能切开迷雾，也可能在不经意间划伤自己和他人。",
+        "星币": "需要特别指出的是，<strong>星币</strong>的集中出现牢牢锚定了物质与现实的主题。🪙 这是一个用务实态度深耕细作的时期——无论是工作、财务还是健康，耐心与坚持终将铸就丰硕的果实。"
+      };
+      if (suitInsights[dominantSuit[0]]) {
+        paragraphs.push(`<p>${suitInsights[dominantSuit[0]]}</p>`);
+      }
+    }
+
+    // 针对性建议
+    if (question) {
+      paragraphs.push(`<p>回到你最初的问题——牌面给出的答案已经蕴含在上述图景之中。塔罗不会替你做出选择，但它为你照亮了前行的路。接下来的行动，由你来书写。</p>`);
+    } else {
+      paragraphs.push(`<p>记住：塔罗牌从不是关于无法更改的宿命，它只是一面<strong>映照当下的灵性之镜</strong>。每一张牌上的讯息，都是你内在智慧的投射。带着这份觉察回归日常，你会发现——答案，一直都在你自己手中。</p>`);
+    }
+
+    return paragraphs.join("");
+  }
+
+  // ==================== WebLLM 后台尝试 ====================
+  async function tryWebLLM(spread) {
+    if (!navigator.gpu) return;
 
     try {
-      // 初始化引擎（如果不是第一次，会从缓存快速加载）
       const engine = await getAIEngine();
-      const progressArea = document.getElementById("ai-progress-area");
-      if (progressArea) {
-        progressArea.innerHTML = `
-          <div class="ai-loading">
-            <div class="ai-loading-dots"><span></span><span></span><span></span></div>
-            <span>AI 正在解读牌面...</span>
-          </div>`;
-      }
-
-      // 构建提示词
       const userQuestion = questionInput.value.trim();
       const cardDescriptions = drawnCards.map((data, i) => {
         const { card, isReversed } = data;
@@ -200,7 +274,7 @@ document.addEventListener("DOMContentLoaded", () => {
         return `【${pos.label}】${card.name}（${isReversed ? '逆位' : '正位'}）：${isReversed ? card.rev_meaning : card.up_meaning}`;
       }).join("\n");
 
-      const systemPrompt = `你是一位资深塔罗解读师，博学、温暖、富有洞察力。请根据抽到的牌阵给用户一段 150-250 字的综合分析。将各张牌串联成完整故事，指出牌与牌的关联和整体趋势。语气像真正的塔罗师在说话——自然、有深度、给出实用建议。用中文回复，不要使用markdown格式。`;
+      const systemPrompt = "你是一位资深塔罗解读师，博学、温暖、富有洞察力。请根据牌阵给出一段 150-250 字的综合分析。将各张牌串联成完整故事，指出牌与牌的关系和整体趋势。语气像真正的塔罗师在说话。用中文回复，不用markdown。";
       const userPrompt = `牌阵：${spread.name}\n${userQuestion ? `问题：${userQuestion}\n` : ""}\n抽牌结果：\n${cardDescriptions}\n\n请给出综合分析：`;
 
       const reply = await engine.chat.completions.create({
@@ -213,143 +287,37 @@ document.addEventListener("DOMContentLoaded", () => {
       });
 
       const aiText = reply.choices[0].message.content;
+      const paragraphs = aiText.split("\n\n").filter(p => p.trim()).map(p => `<p>${p.replace(/\n/g, "<br>")}</p>`).join("");
 
-      const paragraphs = aiText
-        .split("\n\n")
-        .filter(p => p.trim())
-        .map(p => `<p>${p.replace(/\n/g, "<br>")}</p>`)
-        .join("");
-
+      // 替换为 AI 增强版
       aiReading.innerHTML = `
         <div class="ai-reading-header">
           <span class="ai-icon">✨</span>
-          <span class="ai-title">AI 综合分析</span>
+          <span class="ai-title">AI 深度解读</span>
         </div>
         <div class="ai-reading-body">${paragraphs}</div>
       `;
     } catch (error) {
-      console.error("AI reading error:", error);
-      // WebLLM 加载失败时，使用规则引擎兜底
-      const fallback = generateFallbackReading(spread);
-      aiReading.innerHTML = `
-        <div class="ai-reading-header">
-          <span class="ai-icon">✨</span>
-          <span class="ai-title">综合分析</span>
-        </div>
-        <div class="ai-reading-body">${fallback}</div>
-      `;
+      // 静默失败 — 即时综合解读已经显示了
+      console.log("WebLLM unavailable, using instant synthesis:", error.message);
     }
   }
 
-  // ==================== 规则引擎兜底 — 卡牌综合解读 ====================
-  function generateFallbackReading(spread) {
-    const question = questionInput.value.trim();
-    const cards = drawnCards.map((d, i) => ({
-      ...d,
-      position: spread.positions[i]
-    }));
-
-    // 统计
-    const majorCount = cards.filter(c => c.card.type === "major").length;
-    const reversedCount = cards.filter(c => c.isReversed).length;
-    const suits = {};
-    cards.forEach(c => {
-      if (c.card.suit) {
-        suits[c.card.suit] = (suits[c.card.suit] || 0) + 1;
-      }
-    });
-
-    const paragraphs = [];
-
-    // 开场
-    if (question) {
-      paragraphs.push(`<p>关于你提出的「${question}」，牌面给出了以下启示。</p>`);
-    } else {
-      paragraphs.push(`<p>牌阵已为你展开。${spread.name}揭示了如下的能量图景。</p>`);
-    }
-
-    // 大牌占比
-    if (majorCount >= totalCards * 0.6 && totalCards > 1) {
-      paragraphs.push(`<p>本次抽牌中大阿尔卡纳占据了主导地位，这意味着你正处在一个<strong>重要的生命转折点</strong>。命运的力量正在运作，每一个选择都将对未来产生深远影响。不要轻视这些信号——它们是你灵魂成长的契机。</p>`);
-    }
-
-    // 逆位分析
-    if (reversedCount > 0) {
-      const revNames = cards.filter(c => c.isReversed).map(c => c.card.name).join("、");
-      paragraphs.push(`<p>${revNames} 以逆位出现，提示你在相关领域存在<strong>内在阻塞或未完成的课题</strong>。逆位并非凶兆，而是一面镜子，邀请你正视被忽略的阴影面，从中找到突破的力量。</p>`);
-    } else if (totalCards > 1) {
-      paragraphs.push(`<p>全部牌面以正位展现，能量流动顺畅。你正处于一个<strong>意识清晰、行动有力</strong>的阶段，宇宙在支持你前进的每一步。</p>`);
-    }
-
-    // 牌面串联
-    const cardPhrases = cards.map((c, i) => {
-      const orient = c.isReversed ? "逆位提醒" : "正位昭示";
-      return `<strong>${c.position.label}</strong>的 ${c.card.name} ${orient}：${c.isReversed ? c.card.rev_meaning : c.card.up_meaning}`;
-    });
-    paragraphs.push(`<p>将这 ${totalCards} 张牌串联起来看：${cardPhrases.join("；")}。</p>`);
-
-    // 同花色提示
-    const dominantSuit = Object.entries(suits).find(([, count]) => count >= 2);
-    if (dominantSuit) {
-      const suitInsights = {
-        "权杖": "权杖的能量反复出现，说明<strong>行动与激情</strong>是当前的核心主题。你需要关注自己的内在动力，勇敢地迈出步伐，不要被迟疑所困。",
-        "圣杯": "圣杯的多次出现将焦点引向<strong>情感与关系</strong>的世界。此刻你需要倾听内心的声音，关注那些被表面掩盖的真实感受。",
-        "宝剑": "宝剑的反复到场提示<strong>思维与沟通</strong>是当下的关键课题。理性是你的利刃，但也要注意锋芒不要伤害到自己或身边的人。",
-        "星币": "星币的集中出现指向<strong>物质与现实</strong>的领域。现在是用务实态度处理工作、财务和生活根基的时候，耐心耕耘终将有收获。"
-      };
-      if (suitInsights[dominantSuit[0]]) {
-        paragraphs.push(`<p>${suitInsights[dominantSuit[0]]}</p>`);
-      }
-    }
-
-    // 结尾建议
-    paragraphs.push(`<p>最后，请记住：塔罗牌给出的从来不是注定的命运，而是一张<strong>当下的能量地图</strong>。你所看到的每一张牌，都是你内心早已存在的智慧在外界的投射。带着这份觉察回到生活中，你会发现答案一直在你手中。</p>`);
-
-    return paragraphs.join("");
-  }
-
-  // ==================== WebLLM 引擎初始化 ====================
+  // ==================== WebLLM 引擎 ====================
   async function getAIEngine() {
     if (mlcEngine && aiReady) return mlcEngine;
-
-    // 避免重复初始化
     if (aiInitPromise) return aiInitPromise;
 
     aiInitPromise = (async () => {
       const { CreateMLCEngine } = await import("https://esm.sh/@mlc-ai/web-llm@0.2.83");
-
-      mlcEngine = await CreateMLCEngine(
-        "Qwen2.5-1.5B-Instruct-q4f32_1-MLC",
-        {
-          initProgressCallback: (report) => {
-            const progressArea = document.getElementById("ai-progress-area");
-            if (!progressArea) return;
-            const pct = Math.round(report.progress * 100);
-            let statusText = "正在准备AI模型...";
-            if (report.text) {
-              if (report.text.includes("Loading")) statusText = "正在加载模型...";
-              else if (report.text.includes("Download")) statusText = `正在下载AI模型（首次使用）... ${pct}%`;
-              else if (report.text.includes("Compiling")) statusText = "正在编译模型...";
-            }
-            progressArea.innerHTML = `
-              <div class="ai-progress-text">${statusText}</div>
-              <div class="ai-progress-bar"><div class="ai-progress-fill" style="width:${pct}%"></div></div>
-            `;
-          }
-        }
-      );
-
+      mlcEngine = await CreateMLCEngine("Qwen2.5-1.5B-Instruct-q4f32_1-MLC", {
+        initProgressCallback: () => {} // 静默加载，不显示进度
+      });
       aiReady = true;
       return mlcEngine;
     })();
 
     return aiInitPromise;
-  }
-
-  function escapeHtml(str) {
-    const div = document.createElement("div");
-    div.textContent = str;
-    return div.innerHTML;
   }
 
   // ==================== 重新选择牌阵 ====================
