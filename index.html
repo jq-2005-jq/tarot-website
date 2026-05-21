@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>塔罗三张牌阵 · 塔罗占卜</title>
+<title>塔罗占卜 · 多牌阵自选</title>
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -12,69 +12,42 @@
 
 <main class="container">
   <header class="header">
-    <h1 class="title">塔罗三张牌阵</h1>
-    <p class="subtitle">过去 · 现在 · 未来</p>
+    <h1 class="title">塔罗占卜</h1>
+    <p class="subtitle">静心冥想，选择你想要的牌阵</p>
   </header>
 
-  <!-- 初始状态：抽牌按钮 -->
-  <section id="draw-section" class="draw-section">
-    <p class="intro-text">静心冥想你的问题，然后点击下方按钮抽取三张牌</p>
-    <button id="draw-btn" class="btn btn-draw">洗牌并抽牌</button>
+  <!-- 牌阵选择 -->
+  <section id="spread-section" class="spread-section">
+    <div class="spread-cards" id="spread-cards">
+      <button class="spread-option active" data-spread="three">
+        <span class="spread-icon">🂠🂠🂠</span>
+        <span class="spread-name">三张牌阵</span>
+        <span class="spread-hint">过去 · 现在 · 未来</span>
+      </button>
+      <button class="spread-option" data-spread="single">
+        <span class="spread-icon">🂠</span>
+        <span class="spread-name">单张指引</span>
+        <span class="spread-hint">每日一抽 · 快速问答</span>
+      </button>
+      <button class="spread-option" data-spread="cross">
+        <span class="spread-icon">🂠🂠🂠🂠🂠</span>
+        <span class="spread-name">五张十字</span>
+        <span class="spread-hint">全景深度解析</span>
+      </button>
+    </div>
+    <button id="draw-btn" class="btn btn-draw">开始抽牌</button>
   </section>
 
-  <!-- 牌面展示区 -->
+  <!-- 牌面展示区 (动态渲染) -->
   <section id="cards-section" class="cards-section hidden">
-    <div class="cards-row">
-      <div class="card-slot" data-index="0">
-        <div class="card-inner">
-          <div class="card-back">
-            <div class="card-back-pattern">✦</div>
-          </div>
-          <div class="card-face">
-            <img class="card-img" src="" alt="" />
-            <div class="card-name"></div>
-            <div class="card-keywords"></div>
-            <span class="card-orientation"></span>
-          </div>
-        </div>
-        <div class="position-label">过去</div>
-      </div>
-      <div class="card-slot" data-index="1">
-        <div class="card-inner">
-          <div class="card-back">
-            <div class="card-back-pattern">✦</div>
-          </div>
-          <div class="card-face">
-            <img class="card-img" src="" alt="" />
-            <div class="card-name"></div>
-            <div class="card-keywords"></div>
-            <span class="card-orientation"></span>
-          </div>
-        </div>
-        <div class="position-label">现在</div>
-      </div>
-      <div class="card-slot" data-index="2">
-        <div class="card-inner">
-          <div class="card-back">
-            <div class="card-back-pattern">✦</div>
-          </div>
-          <div class="card-face">
-            <img class="card-img" src="" alt="" />
-            <div class="card-name"></div>
-            <div class="card-keywords"></div>
-            <span class="card-orientation"></span>
-          </div>
-        </div>
-        <div class="position-label">未来</div>
-      </div>
-    </div>
+    <div class="cards-row" id="cards-row"></div>
     <p class="flip-hint">点击牌面翻开</p>
   </section>
 
   <!-- 解读区 -->
   <section id="reading-section" class="reading-section hidden">
     <div id="reading-content"></div>
-    <button id="reshuffle-btn" class="btn btn-reshuffle">重新抽牌</button>
+    <button id="reshuffle-btn" class="btn btn-reshuffle">重新选择牌阵</button>
   </section>
 </main>
 

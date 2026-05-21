@@ -1,68 +1,94 @@
-// ==================== 塔罗三张牌阵 — 游戏逻辑 ====================
+// ==================== 塔罗占卜 — 多牌阵自选 ====================
 document.addEventListener("DOMContentLoaded", () => {
+  const spreadCards = document.getElementById("spread-cards");
   const drawBtn = document.getElementById("draw-btn");
-  const drawSection = document.getElementById("draw-section");
+  const spreadSection = document.getElementById("spread-section");
   const cardsSection = document.getElementById("cards-section");
+  const cardsRow = document.getElementById("cards-row");
   const readingSection = document.getElementById("reading-section");
   const readingContent = document.getElementById("reading-content");
   const reshuffleBtn = document.getElementById("reshuffle-btn");
   const flipHint = document.querySelector(".flip-hint");
 
-  let drawnCards = [];        // { card, isReversed }
+  let currentSpread = "three";   // 默认三张牌阵
+  let drawnCards = [];           // [{ card, isReversed }]
   let flippedCount = 0;
+  let totalCards = 3;
+
+  // ==================== 牌阵选择 ====================
+  spreadCards.addEventListener("click", (e) => {
+    const btn = e.target.closest(".spread-option");
+    if (!btn) return;
+    spreadCards.querySelectorAll(".spread-option").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    currentSpread = btn.dataset.spread;
+  });
 
   // ==================== 洗牌 & 抽牌 ====================
   drawBtn.addEventListener("click", () => {
-    // Fisher-Yates shuffle, pick first 3
+    const spread = SPREADS[currentSpread];
+    totalCards = spread.count;
+
+    // Fisher-Yates shuffle, pick required count
     const pool = [...TAROT_CARDS];
     for (let i = pool.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [pool[i], pool[j]] = [pool[j], pool[i]];
     }
-    drawnCards = pool.slice(0, 3).map(card => ({
+    drawnCards = pool.slice(0, totalCards).map(card => ({
       card,
       isReversed: Math.random() < 0.5
     }));
 
-    // Populate card slots
-    const slots = document.querySelectorAll(".card-slot");
-    slots.forEach((slot, i) => {
+    // Build card slots dynamically
+    cardsRow.innerHTML = "";
+    spread.positions.forEach((pos, i) => {
       const data = drawnCards[i];
-      const face = slot.querySelector(".card-face");
-      const img = face.querySelector(".card-img");
-      img.src = getCardImage(data.card.key);
-      img.alt = data.card.name;
-      img.onerror = () => { slot.classList.add("img-fallback"); };
-      face.querySelector(".card-name").textContent = data.card.name;
-      face.querySelector(".card-keywords").textContent =
-        data.isReversed ? data.card.rev_keywords : data.card.up_keywords;
-
-      const orient = face.querySelector(".card-orientation");
-      orient.textContent = data.isReversed ? "逆位" : "正位";
-      orient.className = "card-orientation " + (data.isReversed ? "reversed" : "upright");
-
-      slot.classList.remove("flipped", "reversed");
+      const slot = document.createElement("div");
+      slot.className = "card-slot";
       if (data.isReversed) slot.classList.add("reversed");
+      slot.dataset.index = i;
+      slot.innerHTML = `
+        <div class="card-inner">
+          <div class="card-back">
+            <div class="card-back-pattern">✦</div>
+          </div>
+          <div class="card-face">
+            <img class="card-img" src="${getCardImage(data.card.key)}" alt="${data.card.name}" />
+            <div class="card-name">${data.card.name}</div>
+            <div class="card-keywords">${data.isReversed ? data.card.rev_keywords : data.card.up_keywords}</div>
+            <span class="card-orientation ${data.isReversed ? 'reversed' : 'upright'}">${data.isReversed ? '逆位' : '正位'}</span>
+          </div>
+        </div>
+        <div class="position-label">${pos.label}</div>
+      `;
+      // Image error fallback
+      const img = slot.querySelector(".card-img");
+      img.onerror = () => { slot.classList.add("img-fallback"); };
+      cardsRow.appendChild(slot);
     });
 
-    // Show cards section
-    drawSection.classList.add("hidden");
+    // Show cards, hide selector
+    spreadSection.classList.add("hidden");
     cardsSection.classList.remove("hidden");
     readingSection.classList.add("hidden");
     readingContent.innerHTML = "";
     flippedCount = 0;
     flipHint.style.display = "";
+
+    // Scroll to cards
+    cardsSection.scrollIntoView({ behavior: "smooth", block: "start" });
   });
 
   // ==================== 翻牌 ====================
-  document.querySelector(".cards-row").addEventListener("click", (e) => {
+  cardsRow.addEventListener("click", (e) => {
     const slot = e.target.closest(".card-slot");
     if (!slot || slot.classList.contains("flipped")) return;
 
     slot.classList.add("flipped");
     flippedCount++;
 
-    if (flippedCount === 3) {
+    if (flippedCount === totalCards) {
       flipHint.style.display = "none";
       setTimeout(showReading, 600);
     }
@@ -70,10 +96,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ==================== 生成解读 ====================
   function showReading() {
-    let html = "";
+    const spread = SPREADS[currentSpread];
+    let html = `<div class="reading-summary"><span class="spread-name-tag">${spread.name}</span></div>`;
+
     drawnCards.forEach((data, i) => {
       const { card, isReversed } = data;
-      const pos = SPREAD_POSITIONS[i];
+      const pos = spread.positions[i];
       html += `
         <div class="reading-card">
           <div class="rc-header">
@@ -84,24 +112,20 @@ document.addEventListener("DOMContentLoaded", () => {
           <p class="rc-meaning">${isReversed ? card.rev_meaning : card.up_meaning}</p>
         </div>`;
     });
+
     readingContent.innerHTML = html;
     readingSection.classList.remove("hidden");
     readingSection.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
-  // ==================== 重新抽牌 ====================
+  // ==================== 重新选择牌阵 ====================
   reshuffleBtn.addEventListener("click", () => {
     cardsSection.classList.add("hidden");
     readingSection.classList.add("hidden");
-    drawSection.classList.remove("hidden");
+    spreadSection.classList.remove("hidden");
     readingContent.innerHTML = "";
     flippedCount = 0;
-
-    // Reset card slots
-    document.querySelectorAll(".card-slot").forEach(s => {
-      s.classList.remove("flipped", "reversed");
-    });
-
+    cardsRow.innerHTML = "";
     window.scrollTo({ top: 0, behavior: "smooth" });
   });
 });

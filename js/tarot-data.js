@@ -248,9 +248,39 @@ const TAROT_CARDS = [
 const IMAGE_BASE = "https://cdn.jsdelivr.net/gh/metabismuth/tarot-json@master/cards/";
 function getCardImage(key) { return IMAGE_BASE + key + ".jpg"; }
 
-// 三张牌阵位解读
-const SPREAD_POSITIONS = [
-  { label: "过去", desc: "影响当前局面的过往因素与根源" },
-  { label: "现在", desc: "当前所处的状态与核心议题" },
-  { label: "未来", desc: "即将到来的趋势与建议方向" }
-];
+// 牌阵定义 — 不同抽牌方式及其解读结构
+const SPREADS = {
+  single: {
+    id: "single",
+    name: "单张指引",
+    desc: "快速获取今日指引，适合每日一抽或简短问答",
+    count: 1,
+    positions: [
+      { label: "核心指引", desc: "当前问题的核心洞见与方向" }
+    ]
+  },
+  three: {
+    id: "three",
+    name: "三张牌阵",
+    desc: "经典时间线牌阵，揭示因果脉络",
+    count: 3,
+    positions: [
+      { label: "过去", desc: "影响当前局面的过往因素与根源" },
+      { label: "现在", desc: "当前所处的状态与核心议题" },
+      { label: "未来", desc: "即将到来的趋势与建议方向" }
+    ]
+  },
+  cross: {
+    id: "cross",
+    name: "五张十字",
+    desc: "全面解析现状、挑战、根源、趋势与结果",
+    count: 5,
+    positions: [
+      { label: "现状", desc: "当前所处核心处境" },
+      { label: "挑战", desc: "面临的主要困难或障碍" },
+      { label: "根源", desc: "导致现状的深层过往原因" },
+      { label: "趋势", desc: "近期的发展走向" },
+      { label: "建议", desc: "综合评估与行动方向" }
+    ]
+  }
+};
