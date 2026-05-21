@@ -1,5 +1,6 @@
-// ==================== 塔罗占卜 — 多牌阵自选 ====================
+// ==================== 塔罗占卜 — 多牌阵自选 + AI 解读 ====================
 document.addEventListener("DOMContentLoaded", () => {
+  // DOM refs
   const spreadCards = document.getElementById("spread-cards");
   const drawBtn = document.getElementById("draw-btn");
   const spreadSection = document.getElementById("spread-section");
@@ -7,13 +8,56 @@ document.addEventListener("DOMContentLoaded", () => {
   const cardsRow = document.getElementById("cards-row");
   const readingSection = document.getElementById("reading-section");
   const readingContent = document.getElementById("reading-content");
+  const aiReading = document.getElementById("ai-reading");
   const reshuffleBtn = document.getElementById("reshuffle-btn");
   const flipHint = document.querySelector(".flip-hint");
+  const questionInput = document.getElementById("question-input");
 
-  let currentSpread = "three";   // 默认三张牌阵
-  let drawnCards = [];           // [{ card, isReversed }]
+  // API key modal
+  const apiModal = document.getElementById("api-modal");
+  const apiKeyInput = document.getElementById("api-key-input");
+  const apiSaveBtn = document.getElementById("api-save-btn");
+  const apiSkipBtn = document.getElementById("api-skip-btn");
+  const apiSettingsBtn = document.getElementById("api-settings-btn");
+
+  let currentSpread = "three";
+  let drawnCards = [];
   let flippedCount = 0;
   let totalCards = 3;
+  let apiKey = localStorage.getItem("tarot_anthropic_key") || "";
+
+  // ==================== API Key 管理 ====================
+  if (apiKey) {
+    apiSettingsBtn.classList.add("has-key");
+    apiSettingsBtn.title = "AI 解读已配置，点击更换 Key";
+  }
+
+  function openApiModal() {
+    apiKeyInput.value = apiKey;
+    apiModal.classList.remove("hidden");
+    apiKeyInput.focus();
+  }
+  function closeApiModal() { apiModal.classList.add("hidden"); }
+
+  apiSettingsBtn.addEventListener("click", openApiModal);
+  apiSkipBtn.addEventListener("click", closeApiModal);
+  apiModal.querySelector(".api-modal-overlay").addEventListener("click", closeApiModal);
+
+  apiSaveBtn.addEventListener("click", () => {
+    const val = apiKeyInput.value.trim();
+    if (val) {
+      apiKey = val;
+      localStorage.setItem("tarot_anthropic_key", apiKey);
+      apiSettingsBtn.classList.add("has-key");
+      apiSettingsBtn.title = "AI 解读已配置，点击更换 Key";
+    } else {
+      apiKey = "";
+      localStorage.removeItem("tarot_anthropic_key");
+      apiSettingsBtn.classList.remove("has-key");
+      apiSettingsBtn.title = "AI 解读设置";
+    }
+    closeApiModal();
+  });
 
   // ==================== 牌阵选择 ====================
   spreadCards.addEventListener("click", (e) => {
@@ -62,21 +106,20 @@ document.addEventListener("DOMContentLoaded", () => {
         </div>
         <div class="position-label">${pos.label}</div>
       `;
-      // Image error fallback
       const img = slot.querySelector(".card-img");
       img.onerror = () => { slot.classList.add("img-fallback"); };
       cardsRow.appendChild(slot);
     });
 
-    // Show cards, hide selector
     spreadSection.classList.add("hidden");
     cardsSection.classList.remove("hidden");
     readingSection.classList.add("hidden");
     readingContent.innerHTML = "";
+    aiReading.classList.add("hidden");
+    aiReading.innerHTML = "";
     flippedCount = 0;
     flipHint.style.display = "";
 
-    // Scroll to cards
     cardsSection.scrollIntoView({ behavior: "smooth", block: "start" });
   });
 
@@ -116,6 +159,90 @@ document.addEventListener("DOMContentLoaded", () => {
     readingContent.innerHTML = html;
     readingSection.classList.remove("hidden");
     readingSection.scrollIntoView({ behavior: "smooth", block: "start" });
+
+    // 如果配置了 API Key，调用 AI 解读
+    if (apiKey) {
+      requestAIReading(spread);
+    }
+  }
+
+  // ==================== AI 解读 ====================
+  async function requestAIReading(spread) {
+    aiReading.classList.remove("hidden");
+    aiReading.innerHTML = `
+      <div class="ai-reading-header">
+        <span class="ai-icon">✨</span>
+        <span class="ai-title">AI 综合分析中...</span>
+      </div>
+      <div class="ai-loading">
+        <div class="ai-loading-dots"><span></span><span></span><span></span></div>
+        <span>正在解读牌面关联与深层含义</span>
+      </div>
+    `;
+
+    try {
+      const userQuestion = questionInput.value.trim();
+      const cardDescriptions = drawnCards.map((data, i) => {
+        const { card, isReversed } = data;
+        const pos = spread.positions[i];
+        return `【${pos.label} — ${pos.desc}】${card.name}（${isReversed ? '逆位' : '正位'}）：${isReversed ? card.rev_meaning : card.up_meaning}`;
+      }).join("\n");
+
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json"
+        },
+        body: JSON.stringify({
+          model: "claude-haiku-4-5-20251001",
+          max_tokens: 800,
+          messages: [{
+            role: "user",
+            content: `你是一位资深塔罗解读师。请根据以下塔罗牌阵信息，给出一段 150-250 字的综合分析解读。要求：自然流畅，像一位真正的塔罗师在说话；将各张牌的含义串联成一个完整的故事，指出牌与牌之间的关联和整体趋势；用温暖、有洞察力的语气，给出实用建议。${userQuestion ? `\n问卜者的问题：${userQuestion}` : ""}\n\n牌阵类型：${spread.name}\n\n抽牌结果：\n${cardDescriptions}`
+          }]
+        })
+      });
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error?.message || `API 请求失败 (${response.status})`);
+      }
+
+      const data = await response.json();
+      const aiText = data.content[0].text;
+
+      // 将 markdown 换行转为 HTML 段落
+      const paragraphs = aiText
+        .split("\n\n")
+        .filter(p => p.trim())
+        .map(p => `<p>${p.replace(/\n/g, "<br>")}</p>`)
+        .join("");
+
+      aiReading.innerHTML = `
+        <div class="ai-reading-header">
+          <span class="ai-icon">✨</span>
+          <span class="ai-title">AI 综合分析</span>
+        </div>
+        <div class="ai-reading-body">${paragraphs}</div>
+      `;
+    } catch (error) {
+      console.error("AI reading error:", error);
+      aiReading.innerHTML = `
+        <div class="ai-reading-header">
+          <span class="ai-icon">✨</span>
+          <span class="ai-title">AI 综合分析</span>
+        </div>
+        <div class="ai-error">${escapeHtml(error.message)}</div>
+      `;
+    }
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement("div");
+    div.textContent = str;
+    return div.innerHTML;
   }
 
   // ==================== 重新选择牌阵 ====================
@@ -124,8 +251,15 @@ document.addEventListener("DOMContentLoaded", () => {
     readingSection.classList.add("hidden");
     spreadSection.classList.remove("hidden");
     readingContent.innerHTML = "";
+    aiReading.classList.add("hidden");
+    aiReading.innerHTML = "";
     flippedCount = 0;
     cardsRow.innerHTML = "";
     window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+
+  // ==================== 键盘快捷键 ====================
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeApiModal();
   });
 });
