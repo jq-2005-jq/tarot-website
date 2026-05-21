@@ -207,14 +207,83 @@ document.addEventListener("DOMContentLoaded", () => {
       `;
     } catch (error) {
       console.error("AI reading error:", error);
+      // WebLLM 加载失败时，使用规则引擎兜底
+      const fallback = generateFallbackReading(spread);
       aiReading.innerHTML = `
         <div class="ai-reading-header">
           <span class="ai-icon">✨</span>
-          <span class="ai-title">AI 综合分析</span>
+          <span class="ai-title">综合分析</span>
         </div>
-        <div class="ai-error">AI解读暂时不可用：${escapeHtml(error.message || "未知错误")}<br><small>基础牌意解读不受影响，可以正常参考。</small></div>
+        <div class="ai-reading-body">${fallback}</div>
       `;
     }
+  }
+
+  // ==================== 规则引擎兜底 — 卡牌综合解读 ====================
+  function generateFallbackReading(spread) {
+    const question = questionInput.value.trim();
+    const cards = drawnCards.map((d, i) => ({
+      ...d,
+      position: spread.positions[i]
+    }));
+
+    // 统计
+    const majorCount = cards.filter(c => c.card.type === "major").length;
+    const reversedCount = cards.filter(c => c.isReversed).length;
+    const suits = {};
+    cards.forEach(c => {
+      if (c.card.suit) {
+        suits[c.card.suit] = (suits[c.card.suit] || 0) + 1;
+      }
+    });
+
+    const paragraphs = [];
+
+    // 开场
+    if (question) {
+      paragraphs.push(`<p>关于你提出的「${question}」，牌面给出了以下启示。</p>`);
+    } else {
+      paragraphs.push(`<p>牌阵已为你展开。${spread.name}揭示了如下的能量图景。</p>`);
+    }
+
+    // 大牌占比
+    if (majorCount >= totalCards * 0.6 && totalCards > 1) {
+      paragraphs.push(`<p>本次抽牌中大阿尔卡纳占据了主导地位，这意味着你正处在一个<strong>重要的生命转折点</strong>。命运的力量正在运作，每一个选择都将对未来产生深远影响。不要轻视这些信号——它们是你灵魂成长的契机。</p>`);
+    }
+
+    // 逆位分析
+    if (reversedCount > 0) {
+      const revNames = cards.filter(c => c.isReversed).map(c => c.card.name).join("、");
+      paragraphs.push(`<p>${revNames} 以逆位出现，提示你在相关领域存在<strong>内在阻塞或未完成的课题</strong>。逆位并非凶兆，而是一面镜子，邀请你正视被忽略的阴影面，从中找到突破的力量。</p>`);
+    } else if (totalCards > 1) {
+      paragraphs.push(`<p>全部牌面以正位展现，能量流动顺畅。你正处于一个<strong>意识清晰、行动有力</strong>的阶段，宇宙在支持你前进的每一步。</p>`);
+    }
+
+    // 牌面串联
+    const cardPhrases = cards.map((c, i) => {
+      const orient = c.isReversed ? "逆位提醒" : "正位昭示";
+      return `<strong>${c.position.label}</strong>的 ${c.card.name} ${orient}：${c.isReversed ? c.card.rev_meaning : c.card.up_meaning}`;
+    });
+    paragraphs.push(`<p>将这 ${totalCards} 张牌串联起来看：${cardPhrases.join("；")}。</p>`);
+
+    // 同花色提示
+    const dominantSuit = Object.entries(suits).find(([, count]) => count >= 2);
+    if (dominantSuit) {
+      const suitInsights = {
+        "权杖": "权杖的能量反复出现，说明<strong>行动与激情</strong>是当前的核心主题。你需要关注自己的内在动力，勇敢地迈出步伐，不要被迟疑所困。",
+        "圣杯": "圣杯的多次出现将焦点引向<strong>情感与关系</strong>的世界。此刻你需要倾听内心的声音，关注那些被表面掩盖的真实感受。",
+        "宝剑": "宝剑的反复到场提示<strong>思维与沟通</strong>是当下的关键课题。理性是你的利刃，但也要注意锋芒不要伤害到自己或身边的人。",
+        "星币": "星币的集中出现指向<strong>物质与现实</strong>的领域。现在是用务实态度处理工作、财务和生活根基的时候，耐心耕耘终将有收获。"
+      };
+      if (suitInsights[dominantSuit[0]]) {
+        paragraphs.push(`<p>${suitInsights[dominantSuit[0]]}</p>`);
+      }
+    }
+
+    // 结尾建议
+    paragraphs.push(`<p>最后，请记住：塔罗牌给出的从来不是注定的命运，而是一张<strong>当下的能量地图</strong>。你所看到的每一张牌，都是你内心早已存在的智慧在外界的投射。带着这份觉察回到生活中，你会发现答案一直在你手中。</p>`);
+
+    return paragraphs.join("");
   }
 
   // ==================== WebLLM 引擎初始化 ====================
