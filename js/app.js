@@ -1,4 +1,4 @@
-// ==================== 塔罗占卜 — 多牌阵自选 + AI 解读 ====================
+// ==================== 塔罗占卜 — 多牌阵自选 + 浏览器AI解读 ====================
 document.addEventListener("DOMContentLoaded", () => {
   // DOM refs
   const spreadCards = document.getElementById("spread-cards");
@@ -13,51 +13,15 @@ document.addEventListener("DOMContentLoaded", () => {
   const flipHint = document.querySelector(".flip-hint");
   const questionInput = document.getElementById("question-input");
 
-  // API key modal
-  const apiModal = document.getElementById("api-modal");
-  const apiKeyInput = document.getElementById("api-key-input");
-  const apiSaveBtn = document.getElementById("api-save-btn");
-  const apiSkipBtn = document.getElementById("api-skip-btn");
-  const apiSettingsBtn = document.getElementById("api-settings-btn");
-
   let currentSpread = "three";
   let drawnCards = [];
   let flippedCount = 0;
   let totalCards = 3;
-  let apiKey = localStorage.getItem("tarot_anthropic_key") || "";
 
-  // ==================== API Key 管理 ====================
-  if (apiKey) {
-    apiSettingsBtn.classList.add("has-key");
-    apiSettingsBtn.title = "AI 解读已配置，点击更换 Key";
-  }
-
-  function openApiModal() {
-    apiKeyInput.value = apiKey;
-    apiModal.classList.remove("hidden");
-    apiKeyInput.focus();
-  }
-  function closeApiModal() { apiModal.classList.add("hidden"); }
-
-  apiSettingsBtn.addEventListener("click", openApiModal);
-  apiSkipBtn.addEventListener("click", closeApiModal);
-  apiModal.querySelector(".api-modal-overlay").addEventListener("click", closeApiModal);
-
-  apiSaveBtn.addEventListener("click", () => {
-    const val = apiKeyInput.value.trim();
-    if (val) {
-      apiKey = val;
-      localStorage.setItem("tarot_anthropic_key", apiKey);
-      apiSettingsBtn.classList.add("has-key");
-      apiSettingsBtn.title = "AI 解读已配置，点击更换 Key";
-    } else {
-      apiKey = "";
-      localStorage.removeItem("tarot_anthropic_key");
-      apiSettingsBtn.classList.remove("has-key");
-      apiSettingsBtn.title = "AI 解读设置";
-    }
-    closeApiModal();
-  });
+  // WebLLM engine (lazy init)
+  let mlcEngine = null;
+  let aiInitPromise = null;
+  let aiReady = false;
 
   // ==================== 牌阵选择 ====================
   spreadCards.addEventListener("click", (e) => {
@@ -160,60 +124,74 @@ document.addEventListener("DOMContentLoaded", () => {
     readingSection.classList.remove("hidden");
     readingSection.scrollIntoView({ behavior: "smooth", block: "start" });
 
-    // 如果配置了 API Key，调用 AI 解读
-    if (apiKey) {
-      requestAIReading(spread);
-    }
+    // 启动 AI 解读
+    requestAIReading(spread);
   }
 
-  // ==================== AI 解读 ====================
+  // ==================== AI 解读 (WebLLM) ====================
   async function requestAIReading(spread) {
     aiReading.classList.remove("hidden");
+
+    // 检查 WebGPU 支持
+    if (!navigator.gpu) {
+      aiReading.innerHTML = `
+        <div class="ai-reading-header">
+          <span class="ai-icon">✨</span>
+          <span class="ai-title">AI 综合分析</span>
+        </div>
+        <div class="ai-unsupported">
+          你的浏览器暂不支持本地AI。<br>
+          请使用 <strong>Chrome 113+</strong> 或 <strong>Edge 113+</strong> 访问即可启用此功能。
+        </div>`;
+      return;
+    }
+
+    // 显示初始状态
     aiReading.innerHTML = `
       <div class="ai-reading-header">
         <span class="ai-icon">✨</span>
-        <span class="ai-title">AI 综合分析中...</span>
+        <span class="ai-title">AI 综合分析</span>
       </div>
-      <div class="ai-loading">
-        <div class="ai-loading-dots"><span></span><span></span><span></span></div>
-        <span>正在解读牌面关联与深层含义</span>
+      <div id="ai-progress-area" class="ai-progress">
+        <div class="ai-progress-text">正在准备AI模型...</div>
+        <div class="ai-progress-bar"><div class="ai-progress-fill" style="width:0%"></div></div>
       </div>
     `;
 
     try {
+      // 初始化引擎（如果不是第一次，会从缓存快速加载）
+      const engine = await getAIEngine();
+      const progressArea = document.getElementById("ai-progress-area");
+      if (progressArea) {
+        progressArea.innerHTML = `
+          <div class="ai-loading">
+            <div class="ai-loading-dots"><span></span><span></span><span></span></div>
+            <span>AI 正在解读牌面...</span>
+          </div>`;
+      }
+
+      // 构建提示词
       const userQuestion = questionInput.value.trim();
       const cardDescriptions = drawnCards.map((data, i) => {
         const { card, isReversed } = data;
         const pos = spread.positions[i];
-        return `【${pos.label} — ${pos.desc}】${card.name}（${isReversed ? '逆位' : '正位'}）：${isReversed ? card.rev_meaning : card.up_meaning}`;
+        return `【${pos.label}】${card.name}（${isReversed ? '逆位' : '正位'}）：${isReversed ? card.rev_meaning : card.up_meaning}`;
       }).join("\n");
 
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
-          "content-type": "application/json"
-        },
-        body: JSON.stringify({
-          model: "claude-haiku-4-5-20251001",
-          max_tokens: 800,
-          messages: [{
-            role: "user",
-            content: `你是一位资深塔罗解读师。请根据以下塔罗牌阵信息，给出一段 150-250 字的综合分析解读。要求：自然流畅，像一位真正的塔罗师在说话；将各张牌的含义串联成一个完整的故事，指出牌与牌之间的关联和整体趋势；用温暖、有洞察力的语气，给出实用建议。${userQuestion ? `\n问卜者的问题：${userQuestion}` : ""}\n\n牌阵类型：${spread.name}\n\n抽牌结果：\n${cardDescriptions}`
-          }]
-        })
+      const systemPrompt = `你是一位资深塔罗解读师，博学、温暖、富有洞察力。请根据抽到的牌阵给用户一段 150-250 字的综合分析。将各张牌串联成完整故事，指出牌与牌的关联和整体趋势。语气像真正的塔罗师在说话——自然、有深度、给出实用建议。用中文回复，不要使用markdown格式。`;
+      const userPrompt = `牌阵：${spread.name}\n${userQuestion ? `问题：${userQuestion}\n` : ""}\n抽牌结果：\n${cardDescriptions}\n\n请给出综合分析：`;
+
+      const reply = await engine.chat.completions.create({
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt }
+        ],
+        max_tokens: 500,
+        temperature: 0.8
       });
 
-      if (!response.ok) {
-        const err = await response.json().catch(() => ({}));
-        throw new Error(err.error?.message || `API 请求失败 (${response.status})`);
-      }
+      const aiText = reply.choices[0].message.content;
 
-      const data = await response.json();
-      const aiText = data.content[0].text;
-
-      // 将 markdown 换行转为 HTML 段落
       const paragraphs = aiText
         .split("\n\n")
         .filter(p => p.trim())
@@ -234,9 +212,47 @@ document.addEventListener("DOMContentLoaded", () => {
           <span class="ai-icon">✨</span>
           <span class="ai-title">AI 综合分析</span>
         </div>
-        <div class="ai-error">${escapeHtml(error.message)}</div>
+        <div class="ai-error">AI解读暂时不可用：${escapeHtml(error.message || "未知错误")}<br><small>基础牌意解读不受影响，可以正常参考。</small></div>
       `;
     }
+  }
+
+  // ==================== WebLLM 引擎初始化 ====================
+  async function getAIEngine() {
+    if (mlcEngine && aiReady) return mlcEngine;
+
+    // 避免重复初始化
+    if (aiInitPromise) return aiInitPromise;
+
+    aiInitPromise = (async () => {
+      const { CreateMLCEngine } = await import("https://esm.run/@mlc-ai/web-llm");
+
+      mlcEngine = await CreateMLCEngine(
+        "Qwen2.5-1.5B-Instruct-q4f32_1-MLC",
+        {
+          initProgressCallback: (report) => {
+            const progressArea = document.getElementById("ai-progress-area");
+            if (!progressArea) return;
+            const pct = Math.round(report.progress * 100);
+            let statusText = "正在准备AI模型...";
+            if (report.text) {
+              if (report.text.includes("Loading")) statusText = "正在加载模型...";
+              else if (report.text.includes("Download")) statusText = `正在下载AI模型（首次使用）... ${pct}%`;
+              else if (report.text.includes("Compiling")) statusText = "正在编译模型...";
+            }
+            progressArea.innerHTML = `
+              <div class="ai-progress-text">${statusText}</div>
+              <div class="ai-progress-bar"><div class="ai-progress-fill" style="width:${pct}%"></div></div>
+            `;
+          }
+        }
+      );
+
+      aiReady = true;
+      return mlcEngine;
+    })();
+
+    return aiInitPromise;
   }
 
   function escapeHtml(str) {
@@ -256,10 +272,5 @@ document.addEventListener("DOMContentLoaded", () => {
     flippedCount = 0;
     cardsRow.innerHTML = "";
     window.scrollTo({ top: 0, behavior: "smooth" });
-  });
-
-  // ==================== 键盘快捷键 ====================
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") closeApiModal();
   });
 });

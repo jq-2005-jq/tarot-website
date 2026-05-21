@@ -3,27 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>塔罗占卜 · 多牌阵自选</title>
+<title>塔罗占卜 · 多牌阵自选 + 浏览器AI解读</title>
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 
 <div class="stars"></div>
-
-<!-- API Key 设置弹窗 -->
-<div id="api-modal" class="api-modal hidden">
-  <div class="api-modal-overlay"></div>
-  <div class="api-modal-box">
-    <h3>AI 智能解读</h3>
-    <p class="api-modal-desc">输入你的 Anthropic API Key，翻牌后将由 AI 综合分析牌面，给出个性化的深度解读。Key 仅保存在你的浏览器中。</p>
-    <input id="api-key-input" class="api-key-input" type="password" placeholder="sk-ant-api03-..." />
-    <div class="api-modal-actions">
-      <button id="api-save-btn" class="btn btn-api-save">保存</button>
-      <button id="api-skip-btn" class="btn btn-api-skip">暂不需要</button>
-    </div>
-    <p class="api-modal-hint">获取 Key：<a href="https://console.anthropic.com" target="_blank" rel="noopener">console.anthropic.com</a></p>
-  </div>
-</div>
 
 <main class="container">
   <header class="header">
@@ -53,10 +38,7 @@
     <div class="question-row">
       <input id="question-input" class="question-input" type="text" maxlength="200" placeholder="你想问什么？（可选，例如：我的感情运如何？）" />
     </div>
-    <div class="draw-row">
-      <button id="draw-btn" class="btn btn-draw">开始抽牌</button>
-      <button id="api-settings-btn" class="btn btn-api-settings" title="AI 解读设置">⚙</button>
-    </div>
+    <button id="draw-btn" class="btn btn-draw">开始抽牌</button>
   </section>
 
   <!-- 牌面展示区 (动态渲染) -->
