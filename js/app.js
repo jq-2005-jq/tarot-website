@@ -225,7 +225,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (aiInitPromise) return aiInitPromise;
 
     aiInitPromise = (async () => {
-      const { CreateMLCEngine } = await import("https://esm.run/@mlc-ai/web-llm");
+      const { CreateMLCEngine } = await import("https://esm.sh/@mlc-ai/web-llm@0.2.83");
 
       mlcEngine = await CreateMLCEngine(
         "Qwen2.5-1.5B-Instruct-q4f32_1-MLC",
