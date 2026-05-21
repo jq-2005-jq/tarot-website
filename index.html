@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>塔罗三张牌阵 · 塔罗占卜</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="stars"></div>
+
+<main class="container">
+  <header class="header">
+    <h1 class="title">塔罗三张牌阵</h1>
+    <p class="subtitle">过去 · 现在 · 未来</p>
+  </header>
+
+  <!-- 初始状态：抽牌按钮 -->
+  <section id="draw-section" class="draw-section">
+    <p class="intro-text">静心冥想你的问题，然后点击下方按钮抽取三张牌</p>
+    <button id="draw-btn" class="btn btn-draw">洗牌并抽牌</button>
+  </section>
+
+  <!-- 牌面展示区 -->
+  <section id="cards-section" class="cards-section hidden">
+    <div class="cards-row">
+      <div class="card-slot" data-index="0">
+        <div class="card-inner">
+          <div class="card-back">
+            <div class="card-back-pattern">✦</div>
+          </div>
+          <div class="card-face">
+            <img class="card-img" src="" alt="" />
+            <div class="card-name"></div>
+            <div class="card-keywords"></div>
+            <span class="card-orientation"></span>
+          </div>
+        </div>
+        <div class="position-label">过去</div>
+      </div>
+      <div class="card-slot" data-index="1">
+        <div class="card-inner">
+          <div class="card-back">
+            <div class="card-back-pattern">✦</div>
+          </div>
+          <div class="card-face">
+            <img class="card-img" src="" alt="" />
+            <div class="card-name"></div>
+            <div class="card-keywords"></div>
+            <span class="card-orientation"></span>
+          </div>
+        </div>
+        <div class="position-label">现在</div>
+      </div>
+      <div class="card-slot" data-index="2">
+        <div class="card-inner">
+          <div class="card-back">
+            <div class="card-back-pattern">✦</div>
+          </div>
+          <div class="card-face">
+            <img class="card-img" src="" alt="" />
+            <div class="card-name"></div>
+            <div class="card-keywords"></div>
+            <span class="card-orientation"></span>
+          </div>
+        </div>
+        <div class="position-label">未来</div>
+      </div>
+    </div>
+    <p class="flip-hint">点击牌面翻开</p>
+  </section>
+
+  <!-- 解读区 -->
+  <section id="reading-section" class="reading-section hidden">
+    <div id="reading-content"></div>
+    <button id="reshuffle-btn" class="btn btn-reshuffle">重新抽牌</button>
+  </section>
+</main>
+
+<script src="js/tarot-data.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
