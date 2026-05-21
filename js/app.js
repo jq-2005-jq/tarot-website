@@ -47,26 +47,30 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ==================== 图片预加载 ====================
   function preloadImages() {
-    // 后台预加载所有卡牌图片到浏览器缓存，后续抽牌秒开
-    const preloadLink = document.createElement("link");
-    preloadLink.rel = "dns-prefetch";
-    preloadLink.href = "https://cdn.jsdelivr.net";
-    document.head.appendChild(preloadLink);
-
-    // 分批预加载，每批 10 张，间隔 200ms，避免阻塞
+    // 页面空闲时预加载所有本地卡牌图片，确保抽牌时图片已在缓存
     const keys = TAROT_CARDS.map(c => c.key);
     let idx = 0;
     function loadBatch() {
-      const batch = keys.slice(idx, idx + 10);
+      const batch = keys.slice(idx, idx + 15);
       batch.forEach(key => {
         const img = new Image();
         img.src = getCardImage(key);
       });
-      idx += 10;
-      if (idx < keys.length) setTimeout(loadBatch, 200);
+      idx += 15;
+      if (idx < keys.length) {
+        // 使用 requestIdleCallback 在浏览器空闲时加载，不阻塞交互
+        if (window.requestIdleCallback) {
+          requestIdleCallback(loadBatch);
+        } else {
+          setTimeout(loadBatch, 150);
+        }
+      }
     }
-    // 延迟启动，优先渲染页面
-    setTimeout(loadBatch, 1500);
+    if (window.requestIdleCallback) {
+      requestIdleCallback(loadBatch);
+    } else {
+      setTimeout(loadBatch, 800);
+    }
   }
 
   // ==================== 牌阵选择 ====================

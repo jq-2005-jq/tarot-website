@@ -244,8 +244,8 @@ const TAROT_CARDS = [
   { id: 77, key: "p14", type: "minor", suit: "星币", num: "国王", name: "星币国王", en: "King of Pentacles", up_keywords: "财富、稳重、商业头脑、安全感、大师", rev_keywords: "贪婪、腐败、物质主义、财务失误、僵化", up_meaning: "凭借殷实的家底与过人的商业智慧坐拥江山。你是物质世界的大师，稳健中透出不可撼动的底气。", rev_meaning: "对财富的过度追求可能导致道德偏差。僵化的管理方式正在威胁你长久以来建立的稳定帝国。" }
 ];
 
-// 图像 CDN — jsDelivr 加速的公开领域 RWS 塔罗牌图片
-const IMAGE_BASE = "https://cdn.jsdelivr.net/gh/metabismuth/tarot-json@master/cards/";
+// 本地图片 — 与网站同源加载，零延迟
+const IMAGE_BASE = "images/cards/";
 function getCardImage(key) { return IMAGE_BASE + key + ".jpg"; }
 
 // 牌阵定义 — 不同抽牌方式及其解读结构
