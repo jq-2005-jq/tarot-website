@@ -1,5 +1,8 @@
 // ==================== 塔罗占卜 — 多牌阵自选 + 浏览器AI解读 ====================
 document.addEventListener("DOMContentLoaded", () => {
+  // 浮动粒子背景
+  initParticles();
+
   // DOM refs
   const spreadCards = document.getElementById("spread-cards");
   const drawBtn = document.getElementById("draw-btn");
@@ -22,6 +25,25 @@ document.addEventListener("DOMContentLoaded", () => {
   let mlcEngine = null;
   let aiInitPromise = null;
   let aiReady = false;
+
+  // ==================== 浮动粒子 ====================
+  function initParticles() {
+    const container = document.getElementById("particles");
+    if (!container) return;
+    for (let i = 0; i < 25; i++) {
+      const p = document.createElement("div");
+      p.className = "particle";
+      const size = Math.random() * 3 + 1;
+      p.style.width = size + "px";
+      p.style.height = size + "px";
+      p.style.left = Math.random() * 100 + "%";
+      p.style.top = (60 + Math.random() * 40) + "%";
+      p.style.animationDuration = (6 + Math.random() * 10) + "s";
+      p.style.animationDelay = (Math.random() * 8) + "s";
+      if (Math.random() > 0.5) p.style.background = "var(--gold-light)";
+      container.appendChild(p);
+    }
+  }
 
   // ==================== 牌阵选择 ====================
   spreadCards.addEventListener("click", (e) => {
